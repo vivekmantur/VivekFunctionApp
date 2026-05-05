@@ -8,39 +8,53 @@ import config
 app = func.FunctionApp()
 
 # In-memory OTP store
-# { "user": (otp, expiry_time) }
+# Format: { "user": (otp, expiry_time) }
 otp_store = {}
 
 
-# 🔹 Generate OTP
 @app.route(route="generate-otp", auth_level=func.AuthLevel.ANONYMOUS)
 def generate_otp(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    HTTP Trigger: Generate OTP for a user.
 
+    Query Params:
+        user (str): Optional user identifier.
+
+    Returns:
+        JSON response containing OTP and expiry time.
+    """
     user = req.params.get("user", "default")
 
     otp = str(random.randint(1000, 9999))
     expiry = datetime.datetime.utcnow() + datetime.timedelta(
-    minutes=config.OTP_EXPIRY_MINUTES
-)
+        minutes=config.OTP_EXPIRY_MINUTES
+    )
 
     otp_store[user] = (otp, expiry)
 
-    logging.info(f"Generated OTP for {user}: {otp}")
+    logging.info("Generated OTP for user=%s", user)
 
     return func.HttpResponse(
-        json.dumps({
-            "user": user,
-            "otp": otp,
-            "expires_at": expiry.isoformat()
-        }),
-        mimetype="application/json"
+        json.dumps(
+            {
+                "user": user,
+                "otp": otp,
+                "expires_at": expiry.isoformat()
+            }
+        ),
+        mimetype="application/json",
+        status_code=200
     )
 
 
-# 🔹 View OTPs (for testing)
 @app.route(route="otps", auth_level=func.AuthLevel.ANONYMOUS)
 def view_otps(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    HTTP Trigger: Retrieve all active OTPs.
 
+    Returns:
+        JSON response containing all OTPs with expiry timestamps.
+    """
     data = {
         user: {
             "otp": otp,
@@ -49,17 +63,23 @@ def view_otps(req: func.HttpRequest) -> func.HttpResponse:
         for user, (otp, expiry) in otp_store.items()
     }
 
+    logging.info("Fetched %d OTP entries", len(data))
+
     return func.HttpResponse(
         json.dumps(data),
-        mimetype="application/json"
+        mimetype="application/json",
+        status_code=200
     )
 
 
-
-# 🔹 Timer Trigger → Auto cleanup expired OTPs
 @app.timer_trigger(schedule=config.TIMER_SCHEDULE, arg_name="timer")
-def cleanup_otps(timer: func.TimerRequest):
+def cleanup_otps(timer: func.TimerRequest) -> None:
+    """
+    Timer Trigger: Cleanup expired OTPs.
 
+    Runs on configured CRON schedule and removes OTPs
+    whose expiry time has passed.
+    """
     now = datetime.datetime.utcnow()
     expired_users = []
 
@@ -71,6 +91,6 @@ def cleanup_otps(timer: func.TimerRequest):
         del otp_store[user]
 
     if expired_users:
-        logging.info(f"Removed expired OTPs: {expired_users}")
+        logging.info("Removed expired OTPs: %s", expired_users)
     else:
         logging.info("No expired OTPs found")
