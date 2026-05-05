@@ -3,6 +3,7 @@ import json
 import logging
 import datetime
 import random
+import config
 
 app = func.FunctionApp()
 
@@ -18,7 +19,9 @@ def generate_otp(req: func.HttpRequest) -> func.HttpResponse:
     user = req.params.get("user", "default")
 
     otp = str(random.randint(1000, 9999))
-    expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+    expiry = datetime.datetime.utcnow() + datetime.timedelta(
+    minutes=config.OTP_EXPIRY_MINUTES
+)
 
     otp_store[user] = (otp, expiry)
 
@@ -53,7 +56,7 @@ def view_otps(req: func.HttpRequest) -> func.HttpResponse:
 
 
 # 🔹 Timer Trigger → Auto cleanup expired OTPs
-@app.timer_trigger(schedule="*/10 * * * * *", arg_name="timer")
+@app.timer_trigger(schedule=config.TIMER_SCHEDULE, arg_name="timer")
 def cleanup_otps(timer: func.TimerRequest):
 
     now = datetime.datetime.utcnow()
