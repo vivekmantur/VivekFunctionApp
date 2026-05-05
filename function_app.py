@@ -55,6 +55,7 @@ def view_otps(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
+
 # 🔹 Timer Trigger → Auto cleanup expired OTPs
 @app.timer_trigger(schedule=config.TIMER_SCHEDULE, arg_name="timer")
 def cleanup_otps(timer: func.TimerRequest):
