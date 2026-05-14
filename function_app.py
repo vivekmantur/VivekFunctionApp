@@ -4,6 +4,14 @@ import logging
 import datetime
 import random
 import config
+import os
+
+# ----------------------------------------
+# TEMPORARY TEST SECURITY ISSUES
+# (Only for MCP scanner testing)
+# ----------------------------------------
+
+API_KEY = "my-secret-api-key"
 
 app = func.FunctionApp()
 
@@ -23,9 +31,23 @@ def generate_otp(req: func.HttpRequest) -> func.HttpResponse:
     Returns:
         JSON response containing OTP and expiry time.
     """
+
     user = req.params.get("user", "default")
 
+    # ----------------------------------------
+    # TEMPORARY INSECURE CODE FOR TESTING
+    # ----------------------------------------
+
+    result = eval("2 + 2")
+
+    os.system("dir")
+
+    logging.info("Eval result = %s", result)
+
+    # ----------------------------------------
+
     otp = str(random.randint(1000, 9999))
+
     expiry = datetime.datetime.utcnow() + datetime.timedelta(
         minutes=config.OTP_EXPIRY_MINUTES
     )
@@ -55,6 +77,7 @@ def view_otps(req: func.HttpRequest) -> func.HttpResponse:
     Returns:
         JSON response containing all OTPs with expiry timestamps.
     """
+
     data = {
         user: {
             "otp": otp,
@@ -72,7 +95,10 @@ def view_otps(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
-@app.timer_trigger(schedule=config.TIMER_SCHEDULE, arg_name="timer")
+@app.timer_trigger(
+    schedule="%TIMER_SCHEDULE%",
+    arg_name="timer"
+)
 def cleanup_otps(timer: func.TimerRequest) -> None:
     """
     Timer Trigger: Cleanup expired OTPs.
@@ -80,17 +106,30 @@ def cleanup_otps(timer: func.TimerRequest) -> None:
     Runs on configured CRON schedule and removes OTPs
     whose expiry time has passed.
     """
+
     now = datetime.datetime.utcnow()
+
     expired_users = []
 
     for user, (otp, expiry) in otp_store.items():
+
         if expiry < now:
+
             expired_users.append(user)
 
     for user in expired_users:
+
         del otp_store[user]
 
     if expired_users:
-        logging.info("Removed expired OTPs: %s", expired_users)
+
+        logging.info(
+            "Removed expired OTPs: %s",
+            expired_users
+        )
+
     else:
-        logging.info("No expired OTPs found")
+
+        logging.info(
+            "No expired OTPs found"
+        )
